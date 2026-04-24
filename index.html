@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本猿每日考勤系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">📋</div>
+            <h2>本猿考勤</h2>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard">
+                <span class="nav-icon">📊</span>
+                <span class="nav-text">考勤仪表盘</span>
+            </a>
+            <a href="#" class="nav-item nav-upload" data-page="upload">
+                <span class="nav-icon">📤</span>
+                <span class="nav-text">数据上传</span>
+            </a>
+            <a href="#" class="nav-item nav-history" data-page="history">
+                <span class="nav-icon">📅</span>
+                <span class="nav-text">历史记录</span>
+            </a>
+            <a href="#" class="nav-item nav-settings" data-page="settings">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">系统设置</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="avatar">👤</div>
+                <div class="user-detail">
+                    <div class="user-name">竹轩</div>
+                    <div class="user-role">考勤管理员</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 顶部导航 -->
+        <header class="top-header">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="header-title">
+                <h1 id="pageTitle">考勤仪表盘</h1>
+                <span class="breadcrumb" id="breadcrumb">首页 / 考勤仪表盘</span>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="exportData()">📥 导出报告</button>
+                <button class="btn btn-primary" onclick="refreshData()">🔄 刷新数据</button>
+            </div>
+        </header>
+
+        <!-- 页面容器 -->
+        <div class="page-content" id="pageContent">
+            <!-- 动态加载内容 -->
+        </div>
+    </main>
+
+    <!-- 消息提示 -->
+    <div class="toast" id="toast"></div>
+
+    <!-- 确认对话框 -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="confirmTitle">确认</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" id="confirmBtn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
