@@ -37,11 +37,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('[访客模式] 已启用');
     }
     
-    // 尝试从本地存储加载数据
-    const savedData = localStorage.getItem('attendanceData');
-    if (savedData) {
-        try {
-            const data = JSON.parse(savedData);
+    // 优先从 attendance-data.json 文件加载数据（用于线上部署）
+    // 这样所有访客都能看到同一份数据
+    let dataLoaded = false;
+    
+    try {
+        const response = await fetch('./attendance-data.json');
+        if (response.ok) {
+            const data = await response.json();
             AppState.employees = data.employees || [];
             AppState.accessRecords = data.accessRecords || { 北京: [], 郑州: [], 杭州: [] };
             AppState.schedules = data.schedules || [];
@@ -49,10 +52,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             AppState.analysisResult = data.analysisResult || null;
             AppState.analysisDetail = data.analysisDetail || null;
             AppState.managerStats = data.managerStats || null;
-            console.log('[数据加载] 从本地存储恢复成功');
-        } catch (e) {
-            console.error('[数据加载] 本地存储数据解析失败:', e);
+            AppState.managerPersonalData = data.managerPersonalData || null;
+            dataLoaded = true;
+            console.log('[数据加载] 从 attendance-data.json 加载成功');
         }
+    } catch (e) {
+        console.log('[数据加载] 无法从 JSON 文件加载（可能是本地 file:// 协议）:', e.message);
+    }
+    
+    // 如果 JSON 文件加载失败，尝试从 localStorage 加载（用于本地管理员）
+    if (!dataLoaded) {
+        const savedData = localStorage.getItem('attendanceData');
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                AppState.employees = data.employees || [];
+                AppState.accessRecords = data.accessRecords || { 北京: [], 郑州: [], 杭州: [] };
+                AppState.schedules = data.schedules || [];
+                AppState.leaves = data.leaves || [];
+                AppState.analysisResult = data.analysisResult || null;
+                AppState.analysisDetail = data.analysisDetail || null;
+                AppState.managerStats = data.managerStats || null;
+                AppState.managerPersonalData = data.managerPersonalData || null;
+                dataLoaded = true;
+                console.log('[数据加载] 从本地存储恢复成功');
+            } catch (e) {
+                console.error('[数据加载] 本地存储数据解析失败:', e);
+            }
+        }
+    }
+    
+    if (!dataLoaded) {
+        console.log('[数据加载] 未找到数据，请上传考勤数据');
     }
     
     initNavigation();
@@ -1871,6 +1902,10 @@ const uploadedFiles = {
 };
 
 function initDragDrop() {
+    // 防止重复绑定事件
+    if (window.dragDropInitialized) return;
+    window.dragDropInitialized = true;
+    
     ['employee', 'access', 'schedule', 'leave'].forEach(type => {
         const zone = document.getElementById(type + 'Zone');
         if (!zone) return;
@@ -1886,9 +1921,20 @@ function initDragDrop() {
         
         zone.addEventListener('drop', (e) => {
             e.preventDefault();
+            e.stopPropagation(); // 阻止事件冒泡
             zone.classList.remove('dragover');
             const files = e.dataTransfer.files;
             processFiles(files, type);
+        });
+        
+        // 点击上传区域时触发文件选择
+        zone.addEventListener('click', (e) => {
+            // 如果点击的不是 input 本身，触发 input 的 click
+            const input = zone.querySelector('input[type="file"]');
+            if (input && e.target !== input) {
+                e.stopPropagation();
+                input.click();
+            }
         });
     });
 }
@@ -1896,13 +1942,25 @@ function initDragDrop() {
 function handleFileUpload(input, type) {
     const files = input.files;
     if (files.length === 0) return;
+    
+    // 处理文件
     processFiles(files, type);
+    
+    // 清空 input，防止重复触发
+    input.value = '';
 }
 
 function processFiles(files, type) {
     Array.from(files).forEach(file => {
         if (!file.name.match(/\.(xlsx|xls)$/i)) {
             showToast('请上传 Excel 文件 (.xlsx)', 'error');
+            return;
+        }
+        
+        // 检查是否已存在同名文件，避免重复添加
+        const exists = uploadedFiles[type].some(f => f.name === file.name && f.size === file.size);
+        if (exists) {
+            showToast(`文件 ${file.name} 已存在，跳过`, 'warning');
             return;
         }
         
