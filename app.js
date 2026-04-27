@@ -547,11 +547,6 @@ function renderDashboardContent() {
                     <h4 style="margin: 0 0 16px 0; color: #374151; font-size: 14px; font-weight: 600;">📊 主管出勤状态分布</h4>
                     <div id="managerPersonalStatusChart" style="width: 100%; height: 280px;"></div>
                 </div>
-                <!-- 打卡时间对比图 -->
-                <div style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
-                    <h4 style="margin: 0 0 16px 0; color: #374151; font-size: 14px; font-weight: 600;">⏰ 主管打卡时间对比</h4>
-                    <div id="managerPersonalTimeChart" style="width: 100%; height: 280px;"></div>
-                </div>
             </div>
             <!-- 详细数据表格 -->
             <div class="table-wrapper" style="margin-top: 20px;">
@@ -2853,6 +2848,22 @@ function exportTable() {
         XLSX.utils.book_append_sheet(wb, ws4, '主管团队统计');
     }
     
+    // 工作表5：主管本人出勤情况
+    const managerPersonalData = AppState.managerPersonalData || getManagerPersonalData();
+    if (managerPersonalData && managerPersonalData.length > 0) {
+        const managerPersonalExport = managerPersonalData.map(m => ({
+            '主管姓名': m.name,
+            '职类': m.jobCategory || '-',
+            '工作地点': m.location || '-',
+            '上班时间': m.workTime,
+            '打卡时间': m.checkTime || '-',
+            '出勤状态': m.status
+        }));
+        const ws5 = XLSX.utils.json_to_sheet(managerPersonalExport);
+        ws5['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }];
+        XLSX.utils.book_append_sheet(wb, ws5, '主管本人出勤');
+    }
+    
     // 生成Excel文件（注意：XLSX格式不需要BOM，添加BOM会破坏ZIP结构）
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -2865,7 +2876,7 @@ function exportTable() {
     a.click();
     URL.revokeObjectURL(url);
     
-    showToast('导出成功（含考勤明细、汇总统计、职类统计、主管团队统计）', 'success');
+    showToast('导出成功（含考勤明细、汇总统计、职类统计、主管团队统计、主管本人出勤）', 'success');
 }
 
 function exportAllData() {
@@ -2979,83 +2990,6 @@ function initManagerPersonalCharts() {
             }]
         });
         AppState.charts['managerPersonalStatus'] = statusChart;
-    }
-    
-    // 图表2：打卡时间对比柱状图
-    const timeChartDom = document.getElementById('managerPersonalTimeChart');
-    if (timeChartDom) {
-        const timeData = managerPersonalData.filter(m => m.checkTime && m.checkTime !== '-');
-        
-        const timeChart = echarts.init(timeChartDom);
-        timeChart.setOption({
-            tooltip: {
-                trigger: 'axis',
-                formatter: function(params) {
-                    const name = params[0].axisValue;
-                    const manager = timeData.find(m => m.name === name);
-                    if (!manager) return name;
-                    return `${name}<br/>
-                        上班时间: ${manager.workTime}<br/>
-                        打卡时间: ${manager.checkTime}<br/>
-                        状态: ${manager.status}`;
-                }
-            },
-            grid: {
-                left: '3%',
-                right: '4%',
-                bottom: '3%',
-                top: '40px',
-                containLabel: true
-            },
-            xAxis: {
-                type: 'category',
-                data: timeData.map(m => m.name),
-                axisLabel: {
-                    interval: 0,
-                    rotate: timeData.length > 5 ? 30 : 0,
-                    fontSize: 11
-                }
-            },
-            yAxis: {
-                type: 'value',
-                name: '打卡时间',
-                axisLabel: {
-                    formatter: function(value) {
-                        // 将分钟数转换为时间格式
-                        const hours = Math.floor(value / 60);
-                        const minutes = value % 60;
-                        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-                    }
-                },
-                min: 480, // 8:00
-                max: 1080 // 18:00
-            },
-            series: [{
-                name: '打卡时间',
-                type: 'bar',
-                data: timeData.map(m => {
-                    // 解析打卡时间
-                    if (m.checkTime && m.checkTime !== '-') {
-                        const parts = m.checkTime.split(':');
-                        if (parts.length >= 2) {
-                            const hours = parseInt(parts[0]);
-                            const minutes = parseInt(parts[1]);
-                            return {
-                                value: hours * 60 + minutes,
-                                itemStyle: {
-                                    color: m.status === '正常' ? '#22c55e' : 
-                                           m.status === '迟到' ? '#f59e0b' : '#ef4444'
-                                }
-                            };
-                        }
-                    }
-                    return 0;
-                }),
-                barWidth: '50%',
-                itemStyle: { borderRadius: [8, 8, 0, 0] }
-            }]
-        });
-        AppState.charts['managerPersonalTime'] = timeChart;
     }
 }
 
