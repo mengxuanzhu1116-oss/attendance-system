@@ -2974,12 +2974,24 @@ function initManagerPersonalCharts() {
             legend: { bottom: '5%', left: 'center' },
             series: [{
                 type: 'pie',
-                radius: ['40%', '70%'],
-                avoidLabelOverlap: false,
+                radius: ['35%', '60%'],
+                center: ['50%', '42%'],
+                avoidLabelOverlap: true,
                 itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-                label: { show: false },
+                label: {
+                    show: true,
+                    formatter: '{b} {c}人 ({d}%)',
+                    fontSize: 12,
+                    color: '#374151',
+                    distance: 8
+                },
                 emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
-                labelLine: { show: false },
+                labelLine: {
+                    show: true,
+                    length: 12,
+                    length2: 18,
+                    smooth: true
+                },
                 data: [
                     { value: statusCount['正常'], name: '正常', itemStyle: { color: '#22c55e' } },
                     { value: statusCount['迟到'], name: '迟到', itemStyle: { color: '#f59e0b' } },
