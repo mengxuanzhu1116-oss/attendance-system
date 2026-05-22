@@ -726,6 +726,25 @@ function isResigned(resignDate) {
 }
 
 /**
+ * 标准化日期格式，将各种格式统一为 YYYY-MM-DD
+ */
+function normalizeDate(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return dateStr;
+    dateStr = dateStr.trim();
+    // 处理 "2026年5月22日" 格式
+    const cnMatch = dateStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+    if (cnMatch) {
+        return `${cnMatch[1]}-${cnMatch[2].padStart(2,'0')}-${cnMatch[3].padStart(2,'0')}`;
+    }
+    // 处理 "2026/5/22" 或 "2026-5-22" 格式
+    const parts = dateStr.split(/[/\-]/);
+    if (parts.length === 3) {
+        return `${parts[0].padStart(4,'0')}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+    }
+    return dateStr;
+}
+
+/**
  * 检查指定日期是否在请假期间内
  */
 function isDateInLeaveRange(checkDate, startDate, endDate) {
@@ -762,7 +781,7 @@ function analyzeAttendance() {
     if (AppState.employees.length === 0) return null;
     
     // 获取今天日期作为分析日期
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date(); const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     
     // 合并所有门禁记录
     const allAccessRecords = [
@@ -824,8 +843,8 @@ function analyzeAttendance() {
         const status = leave['审批状态'] || leave['状态'] || leave.status;
         
         // 获取日期（优先匹配「请假开始日期」「请假结束日期」，然后是其他常见字段名）
-        let startDate = leave['请假开始日期'] || leave['开始日期'] || leave['开始时间'] || leave.startDate || leave['起始日期'];
-        let endDate = leave['请假结束日期'] || leave['结束日期'] || leave['结束时间'] || leave.endDate || leave['截止日期'];
+        let startDate = leave['请假开始日期'] || leave['开始日期'] || leave['开始时间'] || leave.startDate || leave['起始日期'] || leave['请假日期'] || leave['日期'];
+        let endDate = leave['请假结束日期'] || leave['结束日期'] || leave['结束时间'] || leave.endDate || leave['截止日期'] || leave['返岗日期'] || startDate;
         
         // 处理 Excel 日期序列号（数字格式）
         if (typeof startDate === 'number') {
@@ -839,10 +858,10 @@ function analyzeAttendance() {
         
         // 格式化日期字符串
         if (startDate && typeof startDate === 'string') {
-            startDate = startDate.trim().substring(0, 10);
+            startDate = normalizeDate(startDate);
         }
         if (endDate && typeof endDate === 'string') {
-            endDate = endDate.trim().substring(0, 10);
+            endDate = normalizeDate(endDate);
         }
         
         const leaveType = leave['假期类型'] || leave['请假类型'] || leave['类型'] || leave.leaveType;
@@ -852,10 +871,10 @@ function analyzeAttendance() {
             console.log(`[调试] 请假记录#${idx}: 姓名=${name}, 状态=${status}, 开始=${startDate}, 结束=${endDate}`);
         }
         
-        if (name && (status === '已通过' || status === '审批中')) {
+        if (name && (!status || status === '已通过' || status === '审批中' || status === '同意' || status === '通过')) {
             // 验证日期有效性
-            const startValid = startDate && startDate !== '1970-01-01' && startDate.length >= 10;
-            const endValid = endDate && endDate !== '1970-01-01' && endDate.length >= 10;
+            const startValid = startDate && startDate !== '1970-01-01' && !isNaN(new Date(startDate).getTime());
+            const endValid = endDate && endDate !== '1970-01-01' && !isNaN(new Date(endDate).getTime());
             
             if (startValid && endValid) {
                 const key = String(name).trim();
@@ -2014,8 +2033,8 @@ function processUploadedData(type, data, filename) {
             let validCount = 0;
             let invalidRecords = [];
             data.forEach((record, index) => {
-                const startDate = record['开始日期'] || record['startDate'] || record['开始时间'];
-                const endDate = record['结束日期'] || record['endDate'] || record['结束时间'];
+                const startDate = normalizeDate(record['请假开始日期'] || record['开始日期'] || record['startDate'] || record['开始时间'] || record['请假日期'] || record['日期']);
+                const endDate = normalizeDate(record['请假结束日期'] || record['结束日期'] || record['endDate'] || record['结束时间'] || record['返岗日期'] || startDate);
                 const name = record['花名'] || record['姓名'] || record['name'];
                 
                 // 检查日期是否有效
@@ -2037,6 +2056,12 @@ function processUploadedData(type, data, filename) {
             });
             
             AppState.leaves = data;
+            
+            // 调试：打印请假数据列名
+            if (data.length > 0) {
+                console.log('[调试] 请假数据列名:', Object.keys(data[0]));
+                console.log('[调试] 请假数据首行:', JSON.stringify(data[0]));
+            }
             
             // 显示解析结果
             if (invalidRecords.length > 0 && data.length > 0) {
